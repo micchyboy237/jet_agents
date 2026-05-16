@@ -70,8 +70,16 @@ def run_job_search(search_input: JobSearchInput) -> JobSearchReport:
     initial_state = JobSearchState(search_input=search_input)
     flow = JobSearchFlow(initial_state=initial_state)
 
-    # Kick off the Flow — returns the JobSearchReport from the final step
-    report: JobSearchReport = flow.kickoff()
+    # Kick off the Flow — returns last method's raw value (ignored).
+    # The JobSearchReport is stored on flow.state.report by build_report().
+    flow.kickoff()
+
+    report: JobSearchReport = flow.state.report
+    if report is None:
+        raise RuntimeError(
+            "Flow completed but no report was produced. "
+            "Check logs for errors in search or match crew steps."
+        )
 
     logger.info(
         "Pipeline complete. Found %d matches. Top score: %.1f",

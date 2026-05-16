@@ -123,7 +123,7 @@ class JobSearchFlow(Flow[JobSearchState]):
         return "ready"
 
     # ── STEP 2: Search Crew ──────────────────────────────────
-    @listen("ready")
+    @listen(parse_and_enrich_input)
     def run_search_crew(self) -> str:
         """
         Kicks off SearchCrew (Job Researcher → Company Analyst → JD Extractor).
@@ -396,8 +396,13 @@ class JobSearchFlow(Flow[JobSearchState]):
 
     # ── STEP 7: Build Report ─────────────────────────────────
     @listen("done")
-    def build_report(self) -> JobSearchReport:
-        """Final step: assemble and return the JobSearchReport."""
+    def build_report(self) -> None:
+        """
+        Final step: assemble the JobSearchReport and store it on state.
+        We store on state (not return) because flow.kickoff() returns the
+        raw return value of the last method — storing on state lets main.py
+        reliably retrieve the typed report after kickoff() completes.
+        """
         inp = self.state.search_input
         report = JobSearchReport(
             query=inp.query,
@@ -412,8 +417,8 @@ class JobSearchFlow(Flow[JobSearchState]):
                 "crew_version": "2.0",
             },
         )
+        self.state.report = report
         logger.info("JobSearchReport ready: %d matches", report.total_found)
-        return report
 
 
 # ─────────────────────────────────────────────────────────────

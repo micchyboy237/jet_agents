@@ -8,26 +8,25 @@ Two crews:
 
 from __future__ import annotations
 
-from crewai import Agent, Crew, Process, Task
-from crewai_tools import SerperDevTool, ScrapeWebsiteTool, FileReadTool
-from pydantic import BaseModel
+import os
+
+from crewai import LLM, Agent, Crew, Process, Task
+from crewai_tools import ScrapeWebsiteTool, SerperDevTool
 
 from .models import (
-    CandidateProfile,
-    RawJobListing,
-    CompanyProfile,
-    StructuredJD,
-    JobMatch,
     ApplicationMaterials,
+    CandidateProfile,
+    CompanyProfile,
     Contact,
-    MarketInsights,
+    RawJobListing,
+    StructuredJD,
 )
-from .tools import SkillMatchTool, FitScoringTool, ResumeTemplateTool
+from .tools import FitScoringTool, ResumeTemplateTool, SkillMatchTool
 
 # ── Shared tool instances ────────────────────
-search_tool  = SerperDevTool()
-scrape_tool  = ScrapeWebsiteTool()
-skill_tool   = SkillMatchTool()
+search_tool = SerperDevTool()
+scrape_tool = ScrapeWebsiteTool()
+skill_tool = SkillMatchTool()
 scoring_tool = FitScoringTool()
 template_tool = ResumeTemplateTool()
 
@@ -36,6 +35,26 @@ template_tool = ResumeTemplateTool()
 # CREW 1 · SearchCrew
 # Agents: Job Researcher → Company Analyst → JD Extractor
 # ═══════════════════════════════════════════════════════════════
+
+llm_config = {
+    "model": os.getenv("LLAMA_CPP_LLM_MODEL"),
+    "base_url": os.getenv("LLAMA_CPP_LLM_URL"),
+    "temperature": 0.7,
+    "max_tokens": 4000,
+    "seed": 42,
+}
+embedder_config = {
+    "provider": "openai",  # or "openai" if using a compatible server
+    "config": {
+        "model": os.getenv(
+            "LLAMA_CPP_EMBED_MODEL"
+        ),  # or "all-minilm", "bge-small-en-v1.5", etc.
+        "base_url": os.getenv("LLAMA_CPP_EMBED_URL"),
+    },
+}
+
+llm = LLM(**llm_config)
+
 
 def build_search_crew(
     query: str,
@@ -54,6 +73,7 @@ def build_search_crew(
 
     # ── Agent 1: Job Researcher ──────────────────────────────
     job_researcher = Agent(
+        llm=llm,
         role="Senior Job Researcher",
         goal=(
             f"Find {max_results} real, live {job_type} job postings for "
@@ -90,6 +110,7 @@ def build_search_crew(
 
     # ── Agent 2: Company Analyst ────────────────────────────
     company_analyst = Agent(
+        llm=llm,
         role="Company Intelligence Analyst",
         goal=(
             "For each company in the job list, research its culture, tech stack, "
@@ -127,6 +148,7 @@ def build_search_crew(
 
     # ── Agent 3: JD Extractor ───────────────────────────────
     jd_extractor = Agent(
+        llm=llm,
         role="Job Description Extraction Specialist",
         goal=(
             "Parse each job description into structured requirements: required skills, "
@@ -169,7 +191,7 @@ def build_search_crew(
         process=Process.sequential,
         verbose=True,
         memory=True,
-        embedder={"provider": "openai", "config": {"model": "text-embedding-3-small"}},
+        embedder=embedder_config,
     )
 
 
@@ -177,6 +199,7 @@ def build_search_crew(
 # CREW 2 · MatchCrew
 # Agents: Skills Matcher → Fit Scorer → Tailoring Agent → HM Finder
 # ═══════════════════════════════════════════════════════════════
+
 
 def build_match_crew(
     candidate: CandidateProfile,
@@ -192,8 +215,7 @@ def build_match_crew(
     """
 
     listings_summary = "\n".join(
-        f"- [{i}] {l.title} @ {l.company} ({l.url})"
-        for i, l in enumerate(raw_listings)
+        f"- [{i}] {l.title} @ {l.company} ({l.url})" for i, l in enumerate(raw_listings)
     )
 
     candidate_ctx = (
@@ -206,6 +228,7 @@ def build_match_crew(
 
     # ── Agent 1: Skills Matcher ──────────────────────────────
     skills_matcher = Agent(
+        llm=llm,
         role="Skills Alignment Specialist",
         goal=(
             "For each job, compute the semantic overlap between the candidate's "
@@ -238,6 +261,7 @@ def build_match_crew(
 
     # ── Agent 2: Fit Scorer ──────────────────────────────────
     fit_scorer = Agent(
+        llm=llm,
         role="Candidate-Job Fit Scorer",
         goal=(
             "Produce a holistic fit score (0–100) per job, combining skills overlap, "
@@ -272,6 +296,7 @@ def build_match_crew(
 
     # ── Agent 3: Tailoring Agent ─────────────────────────────
     tailoring_agent = Agent(
+        llm=llm,
         role="Resume & Cover Letter Specialist",
         goal=(
             "For the top 5 scoring jobs, rewrite the candidate's resume bullets "
@@ -311,6 +336,7 @@ def build_match_crew(
 
     # ── Agent 4: Hiring Manager Finder ───────────────────────
     hm_finder = Agent(
+        llm=llm,
         role="Hiring Manager Research Specialist",
         goal=(
             "For the top 5 companies, find the likely hiring manager or recruiter "

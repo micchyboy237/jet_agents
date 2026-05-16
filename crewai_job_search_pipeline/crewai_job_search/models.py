@@ -182,6 +182,8 @@ class JobSearchState(BaseModel):
     # Matched & scored
     job_matches:    list[JobMatch]             = Field(default_factory=list)
     insights:       Optional[MarketInsights]   = None
+    # Final output — stored here so kickoff() callers can retrieve it reliably
+    report:         Optional["JobSearchReport"] = None
     # Control
     retry_count:    int                        = 0
     errors:         list[str]                  = Field(default_factory=list)
