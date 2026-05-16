@@ -46,10 +46,10 @@ llm_config = {
 embedder_config = {
     "provider": "openai",  # or "openai" if using a compatible server
     "config": {
-        "model": os.getenv(
+        "model_name": os.getenv(
             "LLAMA_CPP_EMBED_MODEL"
         ),  # or "all-minilm", "bge-small-en-v1.5", etc.
-        "base_url": os.getenv("LLAMA_CPP_EMBED_URL"),
+        "url": os.getenv("LLAMA_CPP_EMBED_URL"),
     },
 }
 
