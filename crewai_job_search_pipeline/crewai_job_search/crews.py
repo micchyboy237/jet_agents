@@ -186,6 +186,8 @@ def build_search_crew(
     )
 
     return Crew(
+        chat_llm=llm,
+        manager_llm=llm,
         agents=[job_researcher, company_analyst, jd_extractor],
         tasks=[research_task, company_task, jd_task],
         process=Process.sequential,
@@ -371,6 +373,8 @@ def build_match_crew(
     )
 
     return Crew(
+        chat_llm=llm,
+        manager_llm=llm,
         agents=[skills_matcher, fit_scorer, tailoring_agent, hm_finder],
         tasks=[skills_task, scoring_task, tailoring_task, hm_task],
         process=Process.sequential,
